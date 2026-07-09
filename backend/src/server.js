@@ -1,21 +1,28 @@
-require("dotenv").config();
+import dotenv from "dotenv";
+dotenv.config();
 
-const app = require("./app");
-const redisClient = require("./config/redis");
+
+import app from "./app.js";
+import { connectDatabase } from "./config/database.js";
 
 
 const PORT = process.env.PORT || 5000;
 
 
-redisClient.connect()
-.then(()=>{
+const startServer = async()=>{
 
-    console.log("Redis connected");
+    await connectDatabase();
+
 
     app.listen(PORT,()=>{
+
         console.log(
-            `Server running on ${PORT}`
+            `Server running on port ${PORT}`
         );
+
     });
 
-});
+};
+
+
+startServer();
