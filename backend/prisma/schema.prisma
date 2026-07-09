@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -10,4 +5,525 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  GYM_ADMIN
+  TRAINER
+  MEMBER
+}
+
+enum AccountStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+  SUSPENDED
+  DELETED
+}
+
+enum MembershipStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  ONLINE
+  BANK_TRANSFER
+}
+
+model Gym {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(150)
+  code      String    @unique @db.VarChar(50)
+  email     String?   @db.VarChar(255)
+  phone     String?   @db.VarChar(30)
+  address   String?   @db.Text
+  isActive  Boolean   @default(true)
+  deletedAt DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+
+  gymAdmin                 GymAdmin?
+  trainers                 Trainer[]
+  members                  Member[]
+  membershipPlans          MembershipPlan[]
+  exercises                Exercise[]
+  memberships              Membership[]
+  payments                 Payment[]
+  workoutPlans             WorkoutPlan[]
+  dietPlans                DietPlan[]
+  attendances              Attendance[]
+  memberWorkoutAssignments MemberWorkoutAssignment[]
+  memberDietAssignments    MemberDietAssignment[]
+
+  @@index([isActive])
+  @@map("gyms")
+}
+
+model User {
+  id           String        @id @default(uuid()) @db.Uuid
+  username     String        @unique @db.VarChar(50)
+  email        String        @unique @db.VarChar(255)
+  passwordHash String        @db.VarChar(255)
+  role         UserRole
+  status       AccountStatus @default(PENDING_APPROVAL)
+  lastLoginAt  DateTime?     @db.Timestamptz(6)
+  deletedAt    DateTime?     @db.Timestamptz(6)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(6)
+
+  superAdmin          SuperAdmin?
+  gymAdmin            GymAdmin?
+  trainer             Trainer?
+  member              Member?
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([role, status])
+  @@map("users")
+}
+
+model SuperAdmin {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("super_admins")
+}
+
+model GymAdmin {
+  id        String   @id @default(uuid()) @db.Uuid
+  gymId     String   @unique @db.Uuid
+  userId    String   @unique @db.Uuid
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  gym  Gym  @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("gym_admins")
+}
+
+model Trainer {
+  id              String        @id @default(uuid()) @db.Uuid
+  userId          String        @unique @db.Uuid
+  gymId           String        @db.Uuid
+  specialization  String?       @db.VarChar(150)
+  experienceYears Int?
+  joiningDate     DateTime?     @db.Date
+  certifications  String?       @db.Text
+  status          AccountStatus @default(PENDING_APPROVAL)
+  deletedAt       DateTime?     @db.Timestamptz(6)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(6)
+
+  user                     User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gym                      Gym                       @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  members                  Member[]
+  workoutPlanVersions      WorkoutPlanVersion[]
+  dietPlanVersions         DietPlanVersion[]
+  workoutPlans             WorkoutPlan[]
+  memberWorkoutAssignments MemberWorkoutAssignment[]
+  dietPlans                DietPlan[]
+  memberDietAssignments    MemberDietAssignment[]
+
+  @@index([gymId, status])
+  @@map("trainers")
+}
+
+model Member {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @unique @db.Uuid
+  gymId       String        @db.Uuid
+  trainerId   String?       @db.Uuid
+  status      AccountStatus @default(PENDING_APPROVAL)
+  dateOfBirth DateTime?     @db.Date
+  gender      String?       @db.VarChar(30)
+  joinDate    DateTime?     @db.Date
+  notes       String?       @db.Text
+  deletedAt   DateTime?     @db.Timestamptz(6)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+
+  user               User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gym                Gym                       @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  trainer            Trainer?                  @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+  memberships        Membership[]
+  measurements       MemberMeasurement[]
+  emergencyContacts  EmergencyContact[]
+  attendances        Attendance[]
+  workoutAssignments MemberWorkoutAssignment[]
+  dietAssignments    MemberDietAssignment[]
+
+  @@index([gymId, status])
+  @@index([trainerId])
+  @@map("members")
+}
+
+model MembershipPlan {
+  id           String    @id @default(uuid()) @db.Uuid
+  gymId        String    @db.Uuid
+  name         String    @db.VarChar(120)
+  description  String?   @db.Text
+  durationDays Int
+  price        Decimal   @db.Decimal(12, 2)
+  isActive     Boolean   @default(true)
+  deletedAt    DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(6)
+
+  gym         Gym          @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  memberships Membership[]
+
+  @@unique([gymId, name])
+  @@index([gymId, isActive])
+  @@map("membership_plans")
+}
+
+model Membership {
+  id               String           @id @default(uuid()) @db.Uuid
+  gymId            String           @db.Uuid
+  memberId         String           @db.Uuid
+  membershipPlanId String           @db.Uuid
+  status           MembershipStatus @default(PENDING_PAYMENT)
+  startDate        DateTime?        @db.Date
+  endDate          DateTime?        @db.Date
+  cancelledAt      DateTime?        @db.Timestamptz(6)
+  notes            String?          @db.Text
+  deletedAt        DateTime?        @db.Timestamptz(6)
+  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(6)
+
+  gym            Gym            @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  member         Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  membershipPlan MembershipPlan @relation(fields: [membershipPlanId], references: [id], onDelete: Restrict)
+  payment        Payment?
+
+  @@index([memberId, status])
+  @@index([gymId, status])
+  @@index([membershipPlanId])
+  @@map("memberships")
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  gymId          String        @db.Uuid
+  membershipId   String        @unique @db.Uuid
+  amount         Decimal       @db.Decimal(12, 2)
+  currency       String        @default("LKR") @db.Char(3)
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  transactionRef String?       @unique @db.VarChar(120)
+  paidAt         DateTime?     @db.Timestamptz(6)
+  failureReason  String?       @db.Text
+  deletedAt      DateTime?     @db.Timestamptz(6)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(6)
+
+  gym        Gym        @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([gymId, status])
+  @@map("payments")
+}
+
+model Exercise {
+  id           String    @id @default(uuid()) @db.Uuid
+  gymId        String?   @db.Uuid
+  name         String    @db.VarChar(150)
+  description  String?   @db.Text
+  muscleGroup  String?   @db.VarChar(120)
+  equipment    String?   @db.VarChar(120)
+  instructions String?   @db.Text
+  isActive     Boolean   @default(true)
+  deletedAt    DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(6)
+
+  gym          Gym?                  @relation(fields: [gymId], references: [id], onDelete: SetNull)
+  workoutItems WorkoutExerciseItem[]
+
+  @@unique([gymId, name])
+  @@index([name])
+  @@index([gymId, isActive])
+  @@map("exercises")
+}
+
+model WorkoutPlan {
+  id          String    @id @default(uuid()) @db.Uuid
+  gymId       String    @db.Uuid
+  trainerId   String    @db.Uuid
+  name        String    @db.VarChar(150)
+  goal        String?   @db.VarChar(120)
+  description String?   @db.Text
+  isActive    Boolean   @default(true)
+  deletedAt   DateTime? @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+
+  gym      Gym                  @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  trainer  Trainer              @relation(fields: [trainerId], references: [id], onDelete: Restrict)
+  versions WorkoutPlanVersion[]
+
+  @@unique([gymId, trainerId, name])
+  @@index([gymId, isActive])
+  @@map("workout_plans")
+}
+
+model WorkoutPlanVersion {
+  id            String   @id @default(uuid()) @db.Uuid
+  workoutPlanId String   @db.Uuid
+  versionNumber Int
+  trainerId     String   @db.Uuid
+  title         String   @db.VarChar(150)
+  notes         String?  @db.Text
+  isCurrent     Boolean  @default(false)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+
+  workoutPlan WorkoutPlan               @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  trainer     Trainer                   @relation(fields: [trainerId], references: [id], onDelete: Restrict)
+  items       WorkoutExerciseItem[]
+  assignments MemberWorkoutAssignment[]
+
+  @@unique([workoutPlanId, versionNumber])
+  @@index([workoutPlanId, isCurrent])
+  @@map("workout_plan_versions")
+}
+
+model WorkoutExerciseItem {
+  id                   String   @id @default(uuid()) @db.Uuid
+  workoutPlanVersionId String   @db.Uuid
+  exerciseId           String   @db.Uuid
+  sequence             Int
+  sets                 Int
+  reps                 String   @db.VarChar(30)
+  weight               Decimal? @db.Decimal(8, 2)
+  restSeconds          Int?
+  notes                String?  @db.Text
+  createdAt            DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @db.Timestamptz(6)
+
+  workoutPlanVersion WorkoutPlanVersion @relation(fields: [workoutPlanVersionId], references: [id], onDelete: Cascade)
+  exercise           Exercise           @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  @@unique([workoutPlanVersionId, sequence])
+  @@unique([workoutPlanVersionId, exerciseId])
+  @@index([exerciseId])
+  @@map("workout_exercise_items")
+}
+
+model MemberWorkoutAssignment {
+  id                   String    @id @default(uuid()) @db.Uuid
+  gymId                String    @db.Uuid
+  memberId             String    @db.Uuid
+  workoutPlanVersionId String    @db.Uuid
+  assignedById         String    @db.Uuid
+  assignedAt           DateTime  @default(now()) @db.Timestamptz(6)
+  unassignedAt         DateTime? @db.Timestamptz(6)
+  isActive             Boolean   @default(true)
+  notes                String?   @db.Text
+  createdAt            DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @db.Timestamptz(6)
+
+  gym                Gym                @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  member             Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  workoutPlanVersion WorkoutPlanVersion @relation(fields: [workoutPlanVersionId], references: [id], onDelete: Restrict)
+  assignedBy         Trainer            @relation(fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@index([memberId, isActive])
+  @@index([workoutPlanVersionId, isActive])
+  @@map("member_workout_assignments")
+}
+
+model DietPlan {
+  id          String    @id @default(uuid()) @db.Uuid
+  gymId       String    @db.Uuid
+  trainerId   String    @db.Uuid
+  name        String    @db.VarChar(150)
+  goal        String?   @db.VarChar(120)
+  description String?   @db.Text
+  isActive    Boolean   @default(true)
+  deletedAt   DateTime? @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+
+  gym      Gym               @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  trainer  Trainer           @relation(fields: [trainerId], references: [id], onDelete: Restrict)
+  versions DietPlanVersion[]
+
+  @@unique([gymId, trainerId, name])
+  @@index([gymId, isActive])
+  @@map("diet_plans")
+}
+
+model DietPlanVersion {
+  id            String   @id @default(uuid()) @db.Uuid
+  dietPlanId    String   @db.Uuid
+  versionNumber Int
+  trainerId     String   @db.Uuid
+  title         String   @db.VarChar(150)
+  calories      Int?
+  protein       Decimal? @db.Decimal(8, 2)
+  carbs         Decimal? @db.Decimal(8, 2)
+  fats          Decimal? @db.Decimal(8, 2)
+  notes         String?  @db.Text
+  isCurrent     Boolean  @default(false)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+
+  dietPlan    DietPlan               @relation(fields: [dietPlanId], references: [id], onDelete: Cascade)
+  trainer     Trainer                @relation(fields: [trainerId], references: [id], onDelete: Restrict)
+  meals       Meal[]
+  assignments MemberDietAssignment[]
+
+  @@unique([dietPlanId, versionNumber])
+  @@index([dietPlanId, isCurrent])
+  @@map("diet_plan_versions")
+}
+
+model Meal {
+  id                String   @id @default(uuid()) @db.Uuid
+  dietPlanVersionId String   @db.Uuid
+  name              String   @db.VarChar(150)
+  mealOrder         Int?
+  calories          Int?
+  protein           Decimal? @db.Decimal(8, 2)
+  carbs             Decimal? @db.Decimal(8, 2)
+  fats              Decimal? @db.Decimal(8, 2)
+  notes             String?  @db.Text
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(6)
+
+  dietPlanVersion DietPlanVersion @relation(fields: [dietPlanVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([dietPlanVersionId, mealOrder])
+  @@index([dietPlanVersionId])
+  @@map("meals")
+}
+
+model MemberDietAssignment {
+  id                String    @id @default(uuid()) @db.Uuid
+  gymId             String    @db.Uuid
+  memberId          String    @db.Uuid
+  dietPlanVersionId String    @db.Uuid
+  assignedById      String    @db.Uuid
+  assignedAt        DateTime  @default(now()) @db.Timestamptz(6)
+  unassignedAt      DateTime? @db.Timestamptz(6)
+  isActive          Boolean   @default(true)
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(6)
+
+  gym             Gym             @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  member          Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  dietPlanVersion DietPlanVersion @relation(fields: [dietPlanVersionId], references: [id], onDelete: Restrict)
+  assignedBy      Trainer         @relation(fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@index([memberId, isActive])
+  @@index([dietPlanVersionId, isActive])
+  @@map("member_diet_assignments")
+}
+
+model MemberMeasurement {
+  id             String   @id @default(uuid()) @db.Uuid
+  memberId       String   @db.Uuid
+  measuredAt     DateTime @db.Date
+  heightCm       Decimal? @db.Decimal(5, 2)
+  weightKg       Decimal? @db.Decimal(5, 2)
+  bodyFatPercent Decimal? @db.Decimal(5, 2)
+  muscleMassKg   Decimal? @db.Decimal(5, 2)
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, measuredAt])
+  @@index([memberId, measuredAt])
+  @@map("member_measurements")
+}
+
+model EmergencyContact {
+  id           String   @id @default(uuid()) @db.Uuid
+  memberId     String   @db.Uuid
+  name         String   @db.VarChar(150)
+  relationship String?  @db.VarChar(80)
+  phone        String   @db.VarChar(30)
+  email        String?  @db.VarChar(255)
+  priority     Int      @default(1)
+  isPrimary    Boolean  @default(false)
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, priority])
+  @@index([memberId])
+  @@map("emergency_contacts")
+}
+
+model Attendance {
+  id             String    @id @default(uuid()) @db.Uuid
+  memberId       String    @db.Uuid
+  gymId          String    @db.Uuid
+  attendanceDate DateTime  @db.Date
+  checkInAt      DateTime  @default(now()) @db.Timestamptz(6)
+  checkOutAt     DateTime? @db.Timestamptz(6)
+  source         String?   @db.VarChar(50)
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  gym    Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, attendanceDate])
+  @@index([gymId, attendanceDate])
+  @@map("attendances")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  token     String    @unique @db.Text
+  expiresAt DateTime  @db.Timestamptz(6)
+  revokedAt DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  token     String   @unique @db.Text
+  expiresAt DateTime @db.Timestamptz(6)
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, used])
+  @@map("password_reset_tokens")
 }
