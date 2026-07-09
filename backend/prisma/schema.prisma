@@ -15,11 +15,15 @@ enum UserRole {
 }
 
 enum AccountStatus {
-  PENDING_APPROVAL
   ACTIVE
-  REJECTED
   SUSPENDED
   DELETED
+}
+
+enum ApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
 }
 
 enum MembershipStatus {
@@ -77,33 +81,22 @@ model User {
   email        String        @unique @db.VarChar(255)
   passwordHash String        @db.VarChar(255)
   role         UserRole
-  status       AccountStatus @default(PENDING_APPROVAL)
+  status       AccountStatus @default(ACTIVE)
   lastLoginAt  DateTime?     @db.Timestamptz(6)
   deletedAt    DateTime?     @db.Timestamptz(6)
   createdAt    DateTime      @default(now()) @db.Timestamptz(6)
   updatedAt    DateTime      @updatedAt @db.Timestamptz(6)
 
-  superAdmin          SuperAdmin?
-  gymAdmin            GymAdmin?
-  trainer             Trainer?
-  member              Member?
-  refreshTokens       RefreshToken[]
-  passwordResetTokens PasswordResetToken[]
+  gymAdmin                 GymAdmin?
+  trainer                  Trainer?
+  member                   Member?
+  refreshTokens            RefreshToken[]
+  passwordResetTokens      PasswordResetToken[]
+  memberWorkoutAssignments MemberWorkoutAssignment[]
+  memberDietAssignments    MemberDietAssignment[]
 
   @@index([role, status])
   @@map("users")
-}
-
-model SuperAdmin {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @unique @db.Uuid
-  notes     String?  @db.Text
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("super_admins")
 }
 
 model GymAdmin {
@@ -121,45 +114,42 @@ model GymAdmin {
 }
 
 model Trainer {
-  id              String        @id @default(uuid()) @db.Uuid
-  userId          String        @unique @db.Uuid
-  gymId           String        @db.Uuid
-  specialization  String?       @db.VarChar(150)
+  id              String         @id @default(uuid()) @db.Uuid
+  userId          String         @unique @db.Uuid
+  gymId           String         @db.Uuid
+  specialization  String?        @db.VarChar(150)
   experienceYears Int?
-  joiningDate     DateTime?     @db.Date
-  certifications  String?       @db.Text
-  status          AccountStatus @default(PENDING_APPROVAL)
-  deletedAt       DateTime?     @db.Timestamptz(6)
-  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime      @updatedAt @db.Timestamptz(6)
+  joiningDate     DateTime?      @db.Date
+  certifications  String?        @db.Text
+  approvalStatus  ApprovalStatus @default(PENDING_APPROVAL)
+  deletedAt       DateTime?      @db.Timestamptz(6)
+  createdAt       DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @db.Timestamptz(6)
 
-  user                     User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  gym                      Gym                       @relation(fields: [gymId], references: [id], onDelete: Cascade)
-  members                  Member[]
-  workoutPlanVersions      WorkoutPlanVersion[]
-  dietPlanVersions         DietPlanVersion[]
-  workoutPlans             WorkoutPlan[]
-  memberWorkoutAssignments MemberWorkoutAssignment[]
-  dietPlans                DietPlan[]
-  memberDietAssignments    MemberDietAssignment[]
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gym          Gym           @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  members      Member[]
+  workoutPlans WorkoutPlan[]
+  dietPlans    DietPlan[]
 
-  @@index([gymId, status])
+  @@index([gymId, approvalStatus])
   @@map("trainers")
 }
 
 model Member {
-  id          String        @id @default(uuid()) @db.Uuid
-  userId      String        @unique @db.Uuid
-  gymId       String        @db.Uuid
-  trainerId   String?       @db.Uuid
-  status      AccountStatus @default(PENDING_APPROVAL)
-  dateOfBirth DateTime?     @db.Date
-  gender      String?       @db.VarChar(30)
-  joinDate    DateTime?     @db.Date
-  notes       String?       @db.Text
-  deletedAt   DateTime?     @db.Timestamptz(6)
-  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @unique @db.Uuid
+  gymId          String         @db.Uuid
+  trainerId      String?        @db.Uuid
+  approvalStatus ApprovalStatus @default(PENDING_APPROVAL)
+  qrCode         String         @unique @db.VarChar(120)
+  dateOfBirth    DateTime?      @db.Date
+  gender         String?        @db.VarChar(30)
+  joinDate       DateTime?      @db.Date
+  notes          String?        @db.Text
+  deletedAt      DateTime?      @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(6)
 
   user               User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   gym                Gym                       @relation(fields: [gymId], references: [id], onDelete: Cascade)
@@ -171,7 +161,7 @@ model Member {
   workoutAssignments MemberWorkoutAssignment[]
   dietAssignments    MemberDietAssignment[]
 
-  @@index([gymId, status])
+  @@index([gymId, approvalStatus])
   @@index([trainerId])
   @@map("members")
 }
@@ -290,7 +280,6 @@ model WorkoutPlanVersion {
   id            String   @id @default(uuid()) @db.Uuid
   workoutPlanId String   @db.Uuid
   versionNumber Int
-  trainerId     String   @db.Uuid
   title         String   @db.VarChar(150)
   notes         String?  @db.Text
   isCurrent     Boolean  @default(false)
@@ -298,7 +287,6 @@ model WorkoutPlanVersion {
   updatedAt     DateTime @updatedAt @db.Timestamptz(6)
 
   workoutPlan WorkoutPlan               @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
-  trainer     Trainer                   @relation(fields: [trainerId], references: [id], onDelete: Restrict)
   items       WorkoutExerciseItem[]
   assignments MemberWorkoutAssignment[]
 
@@ -345,7 +333,7 @@ model MemberWorkoutAssignment {
   gym                Gym                @relation(fields: [gymId], references: [id], onDelete: Cascade)
   member             Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
   workoutPlanVersion WorkoutPlanVersion @relation(fields: [workoutPlanVersionId], references: [id], onDelete: Restrict)
-  assignedBy         Trainer            @relation(fields: [assignedById], references: [id], onDelete: Restrict)
+  assignedBy         User               @relation(fields: [assignedById], references: [id], onDelete: Restrict)
 
   @@index([memberId, isActive])
   @@index([workoutPlanVersionId, isActive])
@@ -377,7 +365,6 @@ model DietPlanVersion {
   id            String   @id @default(uuid()) @db.Uuid
   dietPlanId    String   @db.Uuid
   versionNumber Int
-  trainerId     String   @db.Uuid
   title         String   @db.VarChar(150)
   calories      Int?
   protein       Decimal? @db.Decimal(8, 2)
@@ -389,7 +376,6 @@ model DietPlanVersion {
   updatedAt     DateTime @updatedAt @db.Timestamptz(6)
 
   dietPlan    DietPlan               @relation(fields: [dietPlanId], references: [id], onDelete: Cascade)
-  trainer     Trainer                @relation(fields: [trainerId], references: [id], onDelete: Restrict)
   meals       Meal[]
   assignments MemberDietAssignment[]
 
@@ -434,7 +420,7 @@ model MemberDietAssignment {
   gym             Gym             @relation(fields: [gymId], references: [id], onDelete: Cascade)
   member          Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
   dietPlanVersion DietPlanVersion @relation(fields: [dietPlanVersionId], references: [id], onDelete: Restrict)
-  assignedBy      Trainer         @relation(fields: [assignedById], references: [id], onDelete: Restrict)
+  assignedBy      User            @relation(fields: [assignedById], references: [id], onDelete: Restrict)
 
   @@index([memberId, isActive])
   @@index([dietPlanVersionId, isActive])

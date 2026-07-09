@@ -15,12 +15,11 @@
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.11.0",
-    "prisma": "^7.8.0",
+    "PRISMA": "npm:prisma@^6.19.3",
     "redis": "^6.1.0",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
@@ -28,6 +27,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "@types/node": "^26.1.1",
+    "dotenv": "^17.4.2",
+    "nodemon": "^3.1.14",
+    "prisma": "^7.8.0"
   }
 }
