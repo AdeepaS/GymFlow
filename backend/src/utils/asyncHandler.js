@@ -1,9 +1,9 @@
-const asyncHandler = (controller) => {
+const asyncHandler = (fn) => {
 
     return (req, res, next) => {
 
         Promise
-            .resolve(controller(req, res, next))
+            .resolve(fn(req, res, next))
             .catch(next);
 
     };

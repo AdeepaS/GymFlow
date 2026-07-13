@@ -1,48 +1,38 @@
-import jwt from "jsonwebtoken";
-import { env } from "../config/env.js";
+import bcrypt from "bcrypt";
 
-/**
- * Generate Access Token
- */
-export const generateAccessToken = (user) => {
-  return jwt.sign(
-    {
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    },
-    env.JWT_ACCESS_SECRET,
-    {
-      expiresIn: env.ACCESS_TOKEN_EXPIRES_IN,
-    }
-  );
+
+// Number of hashing rounds
+const SALT_ROUNDS = 10;
+
+
+
+// ===============================
+// Hash Password
+// ===============================
+
+export const hashPassword = async (password) => {
+
+    return await bcrypt.hash(
+        password,
+        SALT_ROUNDS
+    );
+
 };
 
-/**
- * Generate Refresh Token
- */
-export const generateRefreshToken = (user) => {
-  return jwt.sign(
-    {
-      userId: user.id,
-    },
-    env.JWT_REFRESH_SECRET,
-    {
-      expiresIn: env.REFRESH_TOKEN_EXPIRES_IN,
-    }
-  );
-};
 
-/**
- * Verify Access Token
- */
-export const verifyAccessToken = (token) => {
-  return jwt.verify(token, env.JWT_ACCESS_SECRET);
-};
 
-/**
- * Verify Refresh Token
- */
-export const verifyRefreshToken = (token) => {
-  return jwt.verify(token, env.JWT_REFRESH_SECRET);
+// ===============================
+// Compare Password
+// ===============================
+
+export const comparePassword = async (
+    password,
+    passwordHash
+) => {
+
+    return await bcrypt.compare(
+        password,
+        passwordHash
+    );
+
 };

@@ -1,29 +1,31 @@
-function validate(schema){
-
-return (req,res,next)=>{
-
-const result =
-schema.safeParse(req.body);
+import AppError from "../errors/AppError.js";
 
 
-if(!result.success){
+const validate = (schema) => {
 
-return res.status(400)
-.json({
-error:
-result.error.errors
-});
+    return (req,res,next)=>{
 
-}
+        const result = schema.safeParse(req.body);
 
 
-req.body=result.data;
+        if(!result.success){
 
-next();
+            throw new AppError(
+                "Validation failed",
+                400
+            );
 
-}
-
-}
+        }
 
 
-module.exports=validate;
+        req.body=result.data;
+
+
+        next();
+
+    };
+
+};
+
+
+export default validate;
