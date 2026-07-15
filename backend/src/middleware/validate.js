@@ -9,6 +9,7 @@ const validate = (schema) => {
 
 
         if(!result.success){
+            console.log(result.error.issues);
 
             throw new AppError(
                 "Validation failed",

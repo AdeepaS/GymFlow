@@ -10,11 +10,15 @@ describe("Authentication API", () => {
 
     const testUser = {
 
-        username: "testuser123",
+        firstName: "Test",
+
+        lastName: "User",
 
         email: "testuser@gmail.com",
 
-        password: "Password@123"
+        password: "Password@123",
+
+        role: "MEMBER"
 
     };
 

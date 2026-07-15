@@ -54,7 +54,15 @@ export const registerSchema = z.object({
         .toLowerCase(),
 
 
-    password: passwordSchema
+    password: passwordSchema,
+
+
+    role: z.enum([
+        "SUPER_ADMIN",
+        "GYM_ADMIN",
+        "TRAINER",
+        "MEMBER"
+    ])
 
 });
 

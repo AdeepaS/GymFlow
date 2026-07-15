@@ -50,13 +50,11 @@ export const register = async (userData) => {
 
     const user = await createUser({
 
-        username: userData.username,
-
         email: userData.email,
 
         passwordHash: hashedPassword,
 
-        role: "MEMBER"
+        role: userData.role
 
     });
 
@@ -66,7 +64,8 @@ export const register = async (userData) => {
 
         id: user.id,
 
-        username: user.username,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
 
         email: user.email,
 
@@ -161,8 +160,6 @@ export const login = async (
         user: {
 
             id: user.id,
-
-            username: user.username,
 
             email: user.email,
 
